@@ -26,6 +26,8 @@ import io.vertx.ext.web.handler.ResponseContentTypeHandler;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static io.vertx.core.Future.succeededFuture;
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -2874,5 +2877,27 @@ public class RouterTest extends WebTestBase {
     testRequest(HttpMethod.GET, "/p", 200, "");
     testRequest(HttpMethod.GET, "/pa", 200, "a");
     testRequest(HttpMethod.GET, "/q", 404, "Not Found");
+  }
+
+  @Test
+  public void testEscapeURIParam() throws Exception {
+
+    String source = "\u00e9";
+    String utf8 = URLEncoder.encode(source, "UTF8");
+    String latin1 = URLEncoder.encode(source, "ISO-8859-1");
+
+    router
+      .route()
+      .handler(rc -> {
+        assertEquals(source, rc.queryParams().get("u"));
+        assertNotEquals(source, rc.queryParams().get("l"));
+
+        assertNotEquals(source, rc.queryParams(StandardCharsets.ISO_8859_1).get("u"));
+        assertEquals(source, rc.queryParams(StandardCharsets.ISO_8859_1).get("l"));
+
+        rc.end();
+      });
+
+    testRequest(HttpMethod.GET, "/?u=" + utf8 + "&l=" + latin1, 200, "OK");
   }
 }
